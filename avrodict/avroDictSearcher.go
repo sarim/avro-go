@@ -4,6 +4,9 @@ import (
     "github.com/sarim/avro-go/avroregex"
     "github.com/sarim/gtre"
     "unicode"
+    "sync"
+    "sync/atomic"
+    // "fmt"
 )
 
 type Searcher struct {
@@ -74,24 +77,38 @@ func (avro *Searcher) Search(enText string) []string {
 	//TODO: Handle error here
 	re := gtre.Parse([]rune(pattern))
 
-	var retWords []string
+    var count int32 = 0
+    ch := make(chan string, 30)
+    var wg sync.WaitGroup
 
 	for _, tn := range tableList {
-		table := "w_" + tn
-		words := avro.searchInSlice(re, table)
-        retWords = append(retWords, words...)
+        wordChunk := avro.Table["w_" + tn]
+    	for i := range wordChunk {
+            
+            wg.Add(1)
+            go func(wg *sync.WaitGroup, i int) {
+                
+                for _, word := range wordChunk[i] {
+            		if re.Match(word) {
+                        ch <- string(word)
+                        atomic.AddInt32(&count, 1)
+            		}
+                }
+                defer wg.Done()
+                
+            }(&wg, i)
+            
+    	}
 	}
+    wg.Wait()
+    
+    finalCount := int(atomic.LoadInt32(&count))
+    //fmt.
+	retWords := make([]string, finalCount)
+    
+    for i := 0; i < finalCount; i++ {
+        retWords[i] = <-ch
+    }
 
 	return retWords
-}
-
-func (avro *Searcher) searchInSlice(re *gtre.Gtre, tableName string) []string {
-    var retWords []string
-
-	for _, word := range avro.Table[tableName] {
-		if re.Match(word) {
-            retWords = append(retWords, string(word))
-		}
-	}
-    return retWords
 }
