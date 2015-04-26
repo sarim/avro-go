@@ -89,8 +89,8 @@ func (avro *Searcher) searchInSlice(re *gtre.Gtre, tableName string) []string {
     var retWords []string
 
 	for _, word := range avro.Table[tableName] {
-		if re.Match([]rune(word)) {
-            retWords = append(retWords, word)
+		if re.Match(word) {
+            retWords = append(retWords, string(word))
 		}
 	}
     return retWords
