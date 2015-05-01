@@ -236,11 +236,6 @@ func (avro *SuggestionBuilder) clearTempCache() {
 	avro.tempCache = make(map[string]cacheableWord)
 }
 
-func (avro *SuggestionBuilder) clearDuplicate(data []string) []string {
-	//TODO: Implement
-	return data
-}
-
 func (avro *SuggestionBuilder) addSuffix(splitWord splitableWord) []string {
 	var tempSlice []string
 	var fullWord string
@@ -301,7 +296,7 @@ func (avro *SuggestionBuilder) joinSuggestion(autoCorrect correctableWord, dictS
 	var words []string
 
 	if avro.Pref.DictDisabled {
-		words = append(words, splitWord.begin+phonetic+splitWord.end)
+		words = []string{splitWord.begin+phonetic+splitWord.end}
 		return Suggestion{words, 0}
 	} else {
 
@@ -329,12 +324,35 @@ func (avro *SuggestionBuilder) joinSuggestion(autoCorrect correctableWord, dictS
 		dictSuggestionWithSuffix := avro.addSuffix(splitWord)
 
 		sortedWords := avro.sortByPhoneticRelevance(phonetic, dictSuggestionWithSuffix)
-		words = append(words, sortedWords...)
+        
+        //array_append_unique implemented by these two anonymous functions
+        
+		func () {
+            if len(words) == 0 {
+                words = sortedWords
+                return
+            }
+            for i := range sortedWords {
+                if sortedWords[i] == words[0] {
+                    words = sortedWords
+                    if i > 0 {
+                        words[i], words[0] = words[0], words[i]
+                    }
+                    return
+                }
+		    }
+            words = append(words, sortedWords...)
+		}()
 
 		/* 3rd Item: Classic Avro Phonetic */
-		words = append(words, phonetic)
-
-		words = avro.clearDuplicate(words)
+        func () {
+            for i := range words {
+                if words[i] == phonetic {
+                    return
+                }
+            }
+    		words = append(words, phonetic)
+        }()
 
 		suggestion := Suggestion{}
 
