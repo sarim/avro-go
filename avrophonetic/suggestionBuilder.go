@@ -127,13 +127,71 @@ func (avro *SuggestionBuilder) getAutocorrect(word string, splitWord splitableWo
 }
 func (avro *SuggestionBuilder) separatePadding(word string) splitableWord {
 	// Mehdi: Feeling lost? Ask Rifat :D
-	// Gittu: ?= lookahead error go. check later
 	// re := regexp.MustCompile("(^(?::`|\\.`|[\\-\\]~!@#%&*()_=+[{}'\";<>\\/?|.,])*?(?=(?:,{2,}))|^(?::`|\\.`|[\\-\\]~!@#%&*()_=+[{}'\";<>\\/?|.,])*)(.*?(?:,,)*)((?::`|\\.`|[\\-\\]~!@#%&*()_=+[{}'\";<>\\/?|.,])*$)")
 
+
+    /*begin part:
+      start (:`)or(.`) or (any or non-gready-multiple) of these  -]~!@#%&*()_=+[{}'";<>/?|., then lookahead "," two or more comma
+          OR
+      start (:`) or (.`) or       any or multiple of these       -]~!@#%&*()_=+[{}'";<>/?.,
+    */
+    
+    /*middle part:
+      non-gready-multiple of everything   then multiple double comma ",,"
+    */
+    
+    /*last part:
+      :` or .`  or                                           -]~!@#%&*()_=+[{}'";<>/?|.,
+    */
+    
 	var splitWord splitableWord
-	splitWord.begin = ""    //match[1]
-	splitWord.middle = word //match[2]
-	splitWord.end = ""      //match[3]
+    
+    const part1 = ":`"
+    const part2 = ".`"
+    const symbols = "-]~!@#%&*()_=+[{}'\";<>/?|.,"
+    
+    var splitPrefix func(word *string)
+    var splitSuffix func(word *string)
+
+    splitPrefix = func(word *string) {
+        if strings.HasPrefix(*word, part1) {
+            splitWord.begin += part1
+            *word = (*word)[2:]
+        } else if strings.HasPrefix(*word, part2) {
+            splitWord.begin += part2
+            *word = (*word)[2:]
+        } else if strings.IndexAny(*word, symbols) == 0 {
+            splitWord.begin += (*word)[0:1]
+            *word = (*word)[1:]
+        } else {
+            return
+        }
+        splitPrefix(word)
+    }
+    
+    splitSuffix = func(word *string) {
+        if strings.HasSuffix(*word, part1) {
+            splitWord.end = part1 + splitWord.end
+            *word = (*word)[0:len(*word)-2]
+        } else if strings.HasSuffix(*word, part2) {
+            splitWord.end = part2 + splitWord.end
+            *word = (*word)[0:len(*word)-2]
+        } else if lastChar := (*word)[len(*word)-1:]; strings.IndexAny(symbols, lastChar) != -1 {
+            splitWord.end = lastChar + splitWord.end
+            *word = (*word)[0:len(*word)-1]
+        } else {
+            return
+        }
+        splitSuffix(word)
+    }
+
+    splitPrefix(&word)
+    splitSuffix(&word)
+    
+    //TODO: Implement Split commas
+    // splitComma(&word)
+    
+	splitWord.middle = word
 
 	return splitWord
 }
