@@ -4,7 +4,6 @@ import (
 	"github.com/arbovm/levenshtein"
 	"github.com/sarim/avro-go/avroclassic"
 	"github.com/sarim/avro-go/avrodict"
-	"regexp"
 	"sort"
 	"strings"
 )
@@ -209,22 +208,20 @@ func (avro *SuggestionBuilder) sortByPhoneticRelevance(phonetic string, dictSugg
 	return suggSlice
 }
 
+const karLetters = "ািীুূৃেৈোৌৄ"
 func (avro *SuggestionBuilder) isKar(input string) bool {
 	if len(input) < 1 {
 		return false
 	}
-	//TODO: implement without regex
-	re := regexp.MustCompile("^[ািীুূৃেৈোৌৄ]$")
-	return re.MatchString(input[0:1])
+	return strings.Contains(karLetters, input[0:1])
 }
 
+const vowelLetters = "অআইঈউঊঋএঐওঔঌৡািীুূৃেৈোৌ"
 func (avro *SuggestionBuilder) isVowel(input string) bool {
 	if len(input) < 1 {
 		return false
 	}
-	//TODO: implement without regex
-	re := regexp.MustCompile("^[অআইঈউঊঋএঐওঔঌৡািীুূৃেৈোৌ]$")
-	return re.MatchString(input[0:1])
+	return strings.Contains(vowelLetters, input[0:1])
 }
 
 func (avro *SuggestionBuilder) addToTempCache(full string, base string, eng string) {
