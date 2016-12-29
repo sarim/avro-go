@@ -17,6 +17,8 @@ import (
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 var iteration = flag.Int("iteration", 1, "iteration count")
 var word = flag.String("word", "sari", "Test Word to run through avro")
+var prevSelectCandidate = flag.String("prev-select-candidate", "", "[candidate] for testing Previously Selected Candidate")
+var prevSelectWord = flag.String("prev-select-word", "", "[word] for testing Previously Selected Candidate")
 var disableDict = flag.Bool("disable-dict", false, "Disable Dictionary Suggestion")
 
 func main() {
@@ -28,7 +30,13 @@ func main() {
 	avroParser := avroclassic.Parser{db.Classicdb}
 	regexParser := avroregex.Parser{db.Regexdb}
 	dBSearch := avrodict.Searcher{db.Dictdb, &regexParser}
-	sb := avrophonetic.NewBuilder(&dBSearch, db.Autocorrect, &avroParser, db.Suffixdb, pref)
+	candSelector := avrophonetic.NewInMemoryCandidateSelector(nil)
+
+	if *prevSelectCandidate != "" && *prevSelectWord != "" {
+		candSelector.Set(*prevSelectCandidate, *prevSelectWord)
+	}
+
+	sb := avrophonetic.NewBuilder(&dBSearch, db.Autocorrect, &avroParser, db.Suffixdb, pref, candSelector)
 
 	if *cpuprofile != "" {
 		f, _ := os.Create(*cpuprofile)

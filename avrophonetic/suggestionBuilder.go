@@ -64,17 +64,23 @@ type SuggestionBuilder struct {
 	Pref          Preference
 	tempCache     map[string]cacheableWord
 	phoneticCache map[string][]string
+	candSelector  CandidateSelector
 }
 
-func NewBuilder(a *avrodict.Searcher, b map[string]string, c *avroclassic.Parser, d map[string]string, e Preference) *SuggestionBuilder {
+func NewBuilder(a *avrodict.Searcher, b map[string]string, c *avroclassic.Parser, d map[string]string, e Preference, f CandidateSelector) *SuggestionBuilder {
 	sb := SuggestionBuilder{}
 	sb.DBSearch = a
 	sb.AutocorrectDB = b
 	sb.AvroParser = c
 	sb.SuffixDict = d
 	sb.Pref = e
-    sb.tempCache = make(map[string]cacheableWord)
-    sb.phoneticCache = make(map[string][]string)
+	sb.tempCache = make(map[string]cacheableWord)
+	sb.phoneticCache = make(map[string][]string)
+	if f == nil {
+		sb.candSelector = NewInMemoryCandidateSelector(nil)
+	} else {
+		sb.candSelector = f
+	}
 	return &sb
 }
 
@@ -289,8 +295,53 @@ func (avro *SuggestionBuilder) addSuffix(splitWord splitableWord) []string {
 }
 
 func (avro *SuggestionBuilder) getPreviousSelection(splitWord splitableWord, suggestionWords []string) int {
-	//TODO: implement
-	return 0
+	word := splitWord.middle
+	prevIndex, _, prevFound := avro.candSelector.Get(word, suggestionWords)
+	if !prevFound {
+		//Full word was not found, try checking without suffix
+		_len := len(word)
+		if _len >= 2 {
+			for j := 1; j < _len; j++ {
+				testSuffix := strings.ToLower(word[_len-j:])
+				suffix, ok := avro.SuffixDict[testSuffix]
+				if ok {
+
+					key := word[0 : len(word)-len(testSuffix)]
+					_, _prevKeyWord, _prevFound := avro.candSelector.Get(key, suggestionWords)
+
+					if _prevFound {
+						//Get possible words for key
+
+						kwRightChar := _prevKeyWord[len(_prevKeyWord)-1:]
+						suffixLeftChar := suffix[0:1]
+
+						selectedWord := ""
+
+						if avro.isVowel(kwRightChar) && avro.isKar(suffixLeftChar) {
+							selectedWord = _prevKeyWord + "\u09df" + suffix // \u09df = B_Y
+						} else {
+							if kwRightChar == "\u09ce" { // \u09ce = b_Khandatta
+								selectedWord = _prevKeyWord[0:len(_prevKeyWord)-1] + "\u09a4" + suffix // \u09a4 = b_T
+							} else if kwRightChar == "\u0982" { // \u0982 = b_Anushar
+								selectedWord = _prevKeyWord[0:len(_prevKeyWord)-1] + "\u0999" + suffix // \u09a4 = b_NGA
+							} else {
+								selectedWord = _prevKeyWord + suffix
+							}
+						}
+
+						for i, v := range suggestionWords {
+							if v == selectedWord {
+								//Save this referrence
+								avro.candSelector.Set(word, selectedWord)
+								return i
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return prevIndex
 }
 
 func (avro *SuggestionBuilder) joinSuggestion(autoCorrect correctableWord, dictSuggestion []string, phonetic string, splitWord splitableWord) Suggestion {
