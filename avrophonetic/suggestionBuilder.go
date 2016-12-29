@@ -1,11 +1,12 @@
 package avrophonetic
 
 import (
+	"sort"
+	"strings"
+
 	"github.com/arbovm/levenshtein"
 	"github.com/sarim/avro-go/avroclassic"
 	"github.com/sarim/avro-go/avrodict"
-	"sort"
-	"strings"
 )
 
 type byLevenshtein struct {
@@ -134,68 +135,66 @@ func (avro *SuggestionBuilder) separatePadding(word string) splitableWord {
 	// Mehdi: Feeling lost? Ask Rifat :D
 	// re := regexp.MustCompile("(^(?::`|\\.`|[\\-\\]~!@#%&*()_=+[{}'\";<>\\/?|.,])*?(?=(?:,{2,}))|^(?::`|\\.`|[\\-\\]~!@#%&*()_=+[{}'\";<>\\/?|.,])*)(.*?(?:,,)*)((?::`|\\.`|[\\-\\]~!@#%&*()_=+[{}'\";<>\\/?|.,])*$)")
 
+	/*begin part:
+	  start (:`)or(.`) or (any or non-gready-multiple) of these  -]~!@#%&*()_=+[{}'";<>/?|., then lookahead "," two or more comma
+	      OR
+	  start (:`) or (.`) or       any or multiple of these       -]~!@#%&*()_=+[{}'";<>/?.,
+	*/
 
-    /*begin part:
-      start (:`)or(.`) or (any or non-gready-multiple) of these  -]~!@#%&*()_=+[{}'";<>/?|., then lookahead "," two or more comma
-          OR
-      start (:`) or (.`) or       any or multiple of these       -]~!@#%&*()_=+[{}'";<>/?.,
-    */
+	/*middle part:
+	  non-gready-multiple of everything   then multiple double comma ",,"
+	*/
 
-    /*middle part:
-      non-gready-multiple of everything   then multiple double comma ",,"
-    */
-
-    /*last part:
-      :` or .`  or                                           -]~!@#%&*()_=+[{}'";<>/?|.,
-    */
+	/*last part:
+	  :` or .`  or                                           -]~!@#%&*()_=+[{}'";<>/?|.,
+	*/
 
 	var splitWord splitableWord
 
-    const part1 = ":`"
-    const part2 = ".`"
-    const symbols = "-]~!@#%&*()_=+[{}'\";<>/?|.,"
+	const part1 = ":`"
+	const part2 = ".`"
+	const symbols = "-]~!@#%&*()_=+[{}'\";<>/?|.,"
 
-    var splitPrefix func(word *string)
-    var splitSuffix func(word *string)
+	var splitPrefix func(word *string)
+	var splitSuffix func(word *string)
 
-    splitPrefix = func(word *string) {
-        if strings.HasPrefix(*word, part1) {
-            splitWord.begin += part1
-            *word = (*word)[2:]
-        } else if strings.HasPrefix(*word, part2) {
-            splitWord.begin += part2
-            *word = (*word)[2:]
-        } else if strings.IndexAny(*word, symbols) == 0 {
-            splitWord.begin += (*word)[0:1]
-            *word = (*word)[1:]
-        } else {
-            return
-        }
-        splitPrefix(word)
-    }
+	splitPrefix = func(word *string) {
+		if strings.HasPrefix(*word, part1) {
+			splitWord.begin += part1
+			*word = (*word)[2:]
+		} else if strings.HasPrefix(*word, part2) {
+			splitWord.begin += part2
+			*word = (*word)[2:]
+		} else if strings.IndexAny(*word, symbols) == 0 {
+			splitWord.begin += (*word)[0:1]
+			*word = (*word)[1:]
+		} else {
+			return
+		}
+		splitPrefix(word)
+	}
 
-    splitSuffix = func(word *string) {
-        if strings.HasSuffix(*word, part1) {
-            splitWord.end = part1 + splitWord.end
-            *word = (*word)[0:len(*word)-2]
-        } else if strings.HasSuffix(*word, part2) {
-            splitWord.end = part2 + splitWord.end
-            *word = (*word)[0:len(*word)-2]
-        } else if lastChar := (*word)[len(*word)-1:]; strings.IndexAny(symbols, lastChar) != -1 {
-            splitWord.end = lastChar + splitWord.end
-            *word = (*word)[0:len(*word)-1]
-        } else {
-            return
-        }
-        splitSuffix(word)
-    }
+	splitSuffix = func(word *string) {
+		if strings.HasSuffix(*word, part1) {
+			splitWord.end = part1 + splitWord.end
+			*word = (*word)[0 : len(*word)-2]
+		} else if strings.HasSuffix(*word, part2) {
+			splitWord.end = part2 + splitWord.end
+			*word = (*word)[0 : len(*word)-2]
+		} else if lastChar := (*word)[len(*word)-1:]; strings.IndexAny(symbols, lastChar) != -1 {
+			splitWord.end = lastChar + splitWord.end
+			*word = (*word)[0 : len(*word)-1]
+		} else {
+			return
+		}
+		splitSuffix(word)
+	}
 
-    splitPrefix(&word)
-    splitSuffix(&word)
+	splitPrefix(&word)
+	splitSuffix(&word)
 
-
-    //TODO: Implement Split commas
-    // splitComma(&word)
+	//TODO: Implement Split commas
+	// splitComma(&word)
 
 	splitWord.middle = word
 
@@ -203,7 +202,8 @@ func (avro *SuggestionBuilder) separatePadding(word string) splitableWord {
 }
 
 func (avro *SuggestionBuilder) sortByPhoneticRelevance(phonetic string, dictSuggestion []string) []string {
-	//Copy things into a sortable interface implementation then call sort
+	// Copy things into a sortable interface implementation then call sort
+	// TODO: BUG: Sorted result is inconsistant, bug in levenshtein or byLevenshtein?
 	suggSlice := make([]string, len(dictSuggestion))
 	copy(suggSlice, dictSuggestion)
 	var sortAble byLevenshtein
@@ -216,6 +216,7 @@ func (avro *SuggestionBuilder) sortByPhoneticRelevance(phonetic string, dictSugg
 }
 
 const karLetters = "ািীুূৃেৈোৌৄ"
+
 func (avro *SuggestionBuilder) isKar(input string) bool {
 	if len(input) < 1 {
 		return false
@@ -224,6 +225,7 @@ func (avro *SuggestionBuilder) isKar(input string) bool {
 }
 
 const vowelLetters = "অআইঈউঊঋএঐওঔঌৡািীুূৃেৈোৌ"
+
 func (avro *SuggestionBuilder) isVowel(input string) bool {
 	if len(input) < 1 {
 		return false
@@ -250,7 +252,7 @@ func (avro *SuggestionBuilder) addSuffix(splitWord splitableWord) []string {
 	var rSlice []string
 
 	if v, ok := avro.phoneticCache[word]; ok {
-        rSlice = make([]string, len(v))
+		rSlice = make([]string, len(v))
 		copy(rSlice, v)
 	}
 
@@ -291,7 +293,7 @@ func (avro *SuggestionBuilder) addSuffix(splitWord splitableWord) []string {
 			}
 		}
 	}
-    return rSlice
+	return rSlice
 }
 
 func (avro *SuggestionBuilder) getPreviousSelection(splitWord splitableWord, suggestionWords []string) int {
@@ -348,7 +350,7 @@ func (avro *SuggestionBuilder) joinSuggestion(autoCorrect correctableWord, dictS
 	var words []string
 
 	if avro.Pref.DictDisabled {
-		words = []string{splitWord.begin+phonetic+splitWord.end}
+		words = []string{splitWord.begin + phonetic + splitWord.end}
 		return Suggestion{words, 0}
 	} else {
 
@@ -377,34 +379,34 @@ func (avro *SuggestionBuilder) joinSuggestion(autoCorrect correctableWord, dictS
 
 		sortedWords := avro.sortByPhoneticRelevance(phonetic, dictSuggestionWithSuffix)
 
-        //array_append_unique implemented by these two anonymous functions
+		//array_append_unique implemented by these two anonymous functions
 
-		func () {
-            if len(words) == 0 {
-                words = sortedWords
-                return
-            }
-            for i := range sortedWords {
-                if sortedWords[i] == words[0] {
-                    words = sortedWords
-                    if i > 0 {
-                        words[i], words[0] = words[0], words[i]
-                    }
-                    return
-                }
-		    }
-            words = append(words, sortedWords...)
+		func() {
+			if len(words) == 0 {
+				words = sortedWords
+				return
+			}
+			for i := range sortedWords {
+				if sortedWords[i] == words[0] {
+					words = sortedWords
+					if i > 0 {
+						words[i], words[0] = words[0], words[i]
+					}
+					return
+				}
+			}
+			words = append(words, sortedWords...)
 		}()
 
 		/* 3rd Item: Classic Avro Phonetic */
-        func () {
-            for i := range words {
-                if words[i] == phonetic {
-                    return
-                }
-            }
-    		words = append(words, phonetic)
-        }()
+		func() {
+			for i := range words {
+				if words[i] == phonetic {
+					return
+				}
+			}
+			words = append(words, phonetic)
+		}()
 
 		suggestion := Suggestion{}
 

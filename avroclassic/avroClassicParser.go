@@ -2,7 +2,7 @@ package avroclassic
 
 import (
 	"strings"
-    "unicode"
+	"unicode"
 )
 
 type Parser struct {
@@ -10,54 +10,50 @@ type Parser struct {
 }
 
 func (avro *Parser) Parse(input string) string {
-	fixed := avro.FixString(input);
-	output := "";
+	fixed := avro.FixString(input)
+	output := ""
 	for cur := 0; cur < len(fixed); cur++ {
 		start := cur
-        end := cur + 1
-        prev := start - 1
+		end := cur + 1
+		prev := start - 1
 		matched := false
 
 		for _, pattern := range avro.Data.Patterns {
-			end = cur + len(pattern.Find);
+			end = cur + len(pattern.Find)
 			if end <= len(fixed) && fixed[start:end] == pattern.Find {
-				prev = start - 1;
+				prev = start - 1
 				if len(pattern.Rules) > 0 {
-				    for _, rule := range pattern.Rules {
+					for _, rule := range pattern.Rules {
 						replace := true
 
 						chk := 0
 
 						for _, match := range rule.Matches {
-						
+
 							if match.Type == "suffix" {
 								chk = end
 							} else /* Prefix */ {
-								chk = prev;
+								chk = prev
 							}
-						
+
 							if match.Scope == "punctuation" { // Beginning
-								if ! (
-										((chk < 0) && (match.Type == "prefix")) || 
-										((chk >= len(fixed)) && (match.Type == "suffix")) || 
-										avro.isPunctuation(fixed[chk])) != match.Negative {
+								if !(((chk < 0) && (match.Type == "prefix")) ||
+									((chk >= len(fixed)) && (match.Type == "suffix")) ||
+									avro.isPunctuation(fixed[chk])) != match.Negative {
 									replace = false
 									break
 								}
 							} else if match.Scope == "vowel" { // Vowel
-								if ! (
-										((chk >= 0 && (match.Type == "prefix")) || 
-											(chk < len(fixed) && (match.Type == "suffix"))) && 
-                                            avro.isVowel(fixed[chk])) != match.Negative {
+								if !(((chk >= 0 && (match.Type == "prefix")) ||
+									(chk < len(fixed) && (match.Type == "suffix"))) &&
+									avro.isVowel(fixed[chk])) != match.Negative {
 									replace = false
 									break
 								}
 							} else if match.Scope == "consonant" { // Consonant
-								if ! (
-										(
-											(chk >= 0 && (match.Type == "prefix")) || 
-											(chk < len(fixed) && match.Type == "suffix")) && 
-										avro.isConsonant(fixed[chk])) != match.Negative {
+								if !(((chk >= 0 && (match.Type == "prefix")) ||
+									(chk < len(fixed) && match.Type == "suffix")) &&
+									avro.isConsonant(fixed[chk])) != match.Negative {
 									replace = false
 									break
 								}
@@ -70,34 +66,34 @@ func (avro *Parser) Parse(input string) string {
 									s = start - len(match.Value)
 									e = start
 								}
-								if ! avro.isExact(match.Value, fixed, s, e, match.Negative) {
+								if !avro.isExact(match.Value, fixed, s, e, match.Negative) {
 									replace = false
 									break
 								}
 							}
 						}
-					
+
 						if replace {
 							output += rule.Replace
 							cur = end - 1
 							matched = true
 							break
 						}
-					
+
 					}
 				}
 				if matched == true {
-				    break
+					break
 				}
-				
+
 				// Default
-				output += pattern.Replace;
+				output += pattern.Replace
 				cur = end - 1
 				matched = true
 				break
 			}
 		}
-		
+
 		if !matched {
 			output += string(fixed[cur])
 		}

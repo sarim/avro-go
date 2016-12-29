@@ -1,25 +1,27 @@
 package main
 
 import (
-	"encoding/json"
 	"encoding/gob"
+	"encoding/json"
+
 	_ "github.com/alecthomas/binary"
 	_ "github.com/gogo/protobuf/proto"
 	vitessbson "github.com/youtube/vitess/go/bson"
-    // "fmt"
-	"github.com/sarim/avro-go/avroclassic"
-    "github.com/sarim/avro-go/avrodict"
-    "github.com/sarim/avro-go/avroregex"
+	// "fmt"
 	"io/ioutil"
 	"os"
+
+	"github.com/sarim/avro-go/avroclassic"
+	"github.com/sarim/avro-go/avrodict"
+	"github.com/sarim/avro-go/avroregex"
 )
 
 type DB struct {
 	Autocorrect map[string]string
-	Classicdb avroclassic.AvroData
-	Dictdb avrodict.AvroTable
-	Regexdb avroregex.AvroData
-	Suffixdb map[string]string
+	Classicdb   avroclassic.AvroData
+	Dictdb      avrodict.AvroTable
+	Regexdb     avroregex.AvroData
+	Suffixdb    map[string]string
 }
 
 func main() {
@@ -36,8 +38,7 @@ func main() {
 	db.Regexdb = avroregex.AvroData{}
 	db.Suffixdb = make(map[string]string)
 
-
-    json.Unmarshal(file1, &db.Autocorrect)
+	json.Unmarshal(file1, &db.Autocorrect)
 	json.Unmarshal(file2, &db.Classicdb)
 	json.Unmarshal(file3, &db.Dictdb)
 	json.Unmarshal(file4, &db.Regexdb)
@@ -45,7 +46,6 @@ func main() {
 
 	jsonData, _ := json.Marshal(db)
 	bsonData, _ := vitessbson.Marshal(db)
-	
 
 	jsonFile, _ := os.Create("./data/compiled.json")
 	bsonFile, _ := os.Create("./data/compiled.bson")
@@ -56,6 +56,5 @@ func main() {
 
 	jsonFile.Write(jsonData)
 	bsonFile.Write(bsonData)
-	
-	
+
 }
