@@ -5,7 +5,7 @@ import "bytes"
 
 type AvroPatternRuleMatch struct {
 	Type  string
-	Scope string 
+	Scope string
     Value string
     Negative bool
 }
@@ -34,7 +34,7 @@ func (m *AvroPatternRuleMatch) UnmarshalJSON(data []byte) error {
         Scope string
         Value string
     }
-    
+
     dec := json.NewDecoder(bytes.NewReader(data))
     if err := dec.Decode(&aux); err != nil {
         return err

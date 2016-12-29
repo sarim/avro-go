@@ -134,21 +134,21 @@ func (avro *SuggestionBuilder) separatePadding(word string) splitableWord {
           OR
       start (:`) or (.`) or       any or multiple of these       -]~!@#%&*()_=+[{}'";<>/?.,
     */
-    
+
     /*middle part:
       non-gready-multiple of everything   then multiple double comma ",,"
     */
-    
+
     /*last part:
       :` or .`  or                                           -]~!@#%&*()_=+[{}'";<>/?|.,
     */
-    
+
 	var splitWord splitableWord
-    
+
     const part1 = ":`"
     const part2 = ".`"
     const symbols = "-]~!@#%&*()_=+[{}'\";<>/?|.,"
-    
+
     var splitPrefix func(word *string)
     var splitSuffix func(word *string)
 
@@ -167,7 +167,7 @@ func (avro *SuggestionBuilder) separatePadding(word string) splitableWord {
         }
         splitPrefix(word)
     }
-    
+
     splitSuffix = func(word *string) {
         if strings.HasSuffix(*word, part1) {
             splitWord.end = part1 + splitWord.end
@@ -186,10 +186,11 @@ func (avro *SuggestionBuilder) separatePadding(word string) splitableWord {
 
     splitPrefix(&word)
     splitSuffix(&word)
-    
+
+
     //TODO: Implement Split commas
     // splitComma(&word)
-    
+
 	splitWord.middle = word
 
 	return splitWord
@@ -243,7 +244,7 @@ func (avro *SuggestionBuilder) addSuffix(splitWord splitableWord) []string {
 	var rSlice []string
 
 	if v, ok := avro.phoneticCache[word]; ok {
-        rSlice = make([]string, len(v))        
+        rSlice = make([]string, len(v))
 		copy(rSlice, v)
 	}
 
@@ -319,14 +320,14 @@ func (avro *SuggestionBuilder) joinSuggestion(autoCorrect correctableWord, dictS
 				avro.phoneticCache[cacheKey] = copiedSuggestion
 			}
 		}
-        
+
 		//Add Suffix
 		dictSuggestionWithSuffix := avro.addSuffix(splitWord)
 
 		sortedWords := avro.sortByPhoneticRelevance(phonetic, dictSuggestionWithSuffix)
-        
+
         //array_append_unique implemented by these two anonymous functions
-        
+
 		func () {
             if len(words) == 0 {
                 words = sortedWords
@@ -360,7 +361,7 @@ func (avro *SuggestionBuilder) joinSuggestion(autoCorrect correctableWord, dictS
 		suggestion.PrevSelection = avro.getPreviousSelection(splitWord, words)
 
 		//Add padding to all, except exact autocorrect
-		for i, _ := range words {
+		for i := range words {
 			if autoCorrect.exact {
 				if autoCorrect.corrected != words[i] {
 					words[i] = splitWord.begin + words[i] + splitWord.end
