@@ -450,3 +450,20 @@ func (avro *SuggestionBuilder) Suggest(word string) Suggestion {
 		return avro.joinSuggestion(correctableWord{}, nil, phonetic, splitWord)
 	}
 }
+
+func (avro *SuggestionBuilder) StringCommitted(word string, candidate string) {
+	if !avro.Pref.DictDisabled {
+
+		//If it is called, user made the final decision here
+		//Check and save selection without suffix if that is not present
+		//TODO: BUG: candidate never in tempCache. Probably bug in `addSuffix` which isn't populating tempCache properly.
+		cacheWord, ok := avro.tempCache[candidate]
+		if ok {
+			//Don't overwrite existing value
+			if !avro.candSelector.Has(cacheWord.eng) {
+				avro.candSelector.Set(cacheWord.eng, cacheWord.base)
+			}
+		}
+		avro.candSelector.Save()
+	}
+}

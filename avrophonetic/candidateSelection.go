@@ -3,6 +3,7 @@ package avrophonetic
 type CandidateSelector interface {
 	Load() error
 	Save() error
+	Has(candidate string) bool
 	Get(candidate string, suggestions []string) (int, string, bool)
 	Set(candidate string, suggestion string) error
 }
@@ -18,6 +19,11 @@ func (cs *InMemoryCandidateSelector) Load() error {
 
 func (cs *InMemoryCandidateSelector) Save() error {
 	return nil
+}
+
+func (cs *InMemoryCandidateSelector) Has(candidate string) bool {
+	_, ok := cs.storage[candidate]
+	return ok
 }
 
 func (cs *InMemoryCandidateSelector) Get(candidate string, suggestions []string) (int, string, bool) {
