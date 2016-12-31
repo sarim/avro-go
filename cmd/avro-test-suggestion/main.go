@@ -7,6 +7,8 @@ import (
 	"runtime/pprof"
 	"time"
 
+	"strings"
+
 	"github.com/sarim/avro-go/avroclassic"
 	"github.com/sarim/avro-go/avrodata"
 	"github.com/sarim/avro-go/avrodict"
@@ -16,7 +18,7 @@ import (
 
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 var iteration = flag.Int("iteration", 1, "iteration count")
-var word = flag.String("word", "sari", "Test Word to run through avro")
+var words = flag.String("words", "sari", "Comma seperated test words to run through avro")
 var prevSelectCandidate = flag.String("prev-select-candidate", "", "[candidate] for testing Previously Selected Candidate")
 var prevSelectWord = flag.String("prev-select-word", "", "[word] for testing Previously Selected Candidate")
 var disableDict = flag.Bool("disable-dict", false, "Disable Dictionary Suggestion")
@@ -44,18 +46,24 @@ func main() {
 		pprof.StartCPUProfile(f)
 	}
 
-	startTime := time.Now()
+	wordList := strings.Split(*words, ",")
 
-	var suggestion avrophonetic.Suggestion
+	for _, word := range wordList {
 
-	for i := 0; i < *iteration; i++ {
-		suggestion = sb.Suggest(*word)
+		startTime := time.Now()
+
+		var suggestion avrophonetic.Suggestion
+
+		for i := 0; i < *iteration; i++ {
+			suggestion = sb.Suggest(word)
+		}
+
+		fmt.Printf("Time: %s\n", time.Since(startTime))
+		fmt.Printf("%q\n", suggestion)
 	}
 
 	if *cpuprofile != "" {
 		pprof.StopCPUProfile()
 	}
 
-	fmt.Printf("Time: %s\n", time.Since(startTime))
-	fmt.Printf("%q\n", suggestion)
 }
