@@ -4,6 +4,10 @@ import (
 	"sort"
 	"strings"
 
+	"fmt"
+
+	"unicode/utf8"
+
 	"github.com/arbovm/levenshtein"
 	"github.com/sarim/avro-go/avroclassic"
 	"github.com/sarim/avro-go/avrodict"
@@ -63,9 +67,9 @@ type SuggestionBuilder struct {
 	AvroParser    *avroclassic.Parser
 	SuffixDict    map[string]string
 	Pref          Preference
+	CandSelector  CandidateSelector
 	tempCache     map[string]cacheableWord
 	phoneticCache map[string][]string
-	candSelector  CandidateSelector
 }
 
 func NewBuilder(a *avrodict.Searcher, b map[string]string, c *avroclassic.Parser, d map[string]string, e Preference, f CandidateSelector) *SuggestionBuilder {
@@ -78,9 +82,9 @@ func NewBuilder(a *avrodict.Searcher, b map[string]string, c *avroclassic.Parser
 	sb.tempCache = make(map[string]cacheableWord)
 	sb.phoneticCache = make(map[string][]string)
 	if f == nil {
-		sb.candSelector = NewInMemoryCandidateSelector(nil)
+		sb.CandSelector = NewInMemoryCandidateSelector(nil)
 	} else {
-		sb.candSelector = f
+		sb.CandSelector = f
 	}
 	return &sb
 }
@@ -217,20 +221,20 @@ func (avro *SuggestionBuilder) sortByPhoneticRelevance(phonetic string, dictSugg
 
 const karLetters = "ািীুূৃেৈোৌৄ"
 
-func (avro *SuggestionBuilder) isKar(input string) bool {
-	if len(input) < 1 {
-		return false
-	}
-	return strings.Contains(karLetters, input[0:1])
+func (avro *SuggestionBuilder) isKar(input rune) bool {
+	// if len(input) < 1 {
+	// 	return false
+	// }
+	return strings.ContainsRune(karLetters, input)
 }
 
 const vowelLetters = "অআইঈউঊঋএঐওঔঌৡািীুূৃেৈোৌ"
 
-func (avro *SuggestionBuilder) isVowel(input string) bool {
-	if len(input) < 1 {
-		return false
-	}
-	return strings.Contains(vowelLetters, input[0:1])
+func (avro *SuggestionBuilder) isVowel(input rune) bool {
+	// if len(input) < 1 {
+	// 	return false
+	// }
+	return strings.ContainsRune(vowelLetters, input)
 }
 
 func (avro *SuggestionBuilder) addToTempCache(full string, base string, eng string) {
@@ -266,19 +270,20 @@ func (avro *SuggestionBuilder) addSuffix(splitWord splitableWord) []string {
 				key := word[0 : len(word)-len(testSuffix)]
 				if vSlice, ok := avro.phoneticCache[key]; ok {
 					for _, cacheItem := range vSlice {
-						cacheRightChar := cacheItem[len(cacheItem)-1 : len(cacheItem)]
-						suffixLeftChar := suffix[0:1]
+						cacheRightChar, _ := utf8.DecodeLastRuneInString(cacheItem)
+						suffixLeftChar, _ := utf8.DecodeRuneInString(suffix)
+						fmt.Println("word, cacheItem, suffix, cacheRightChar, suffixLeftChar >", word, cacheItem, suffix, cacheRightChar, suffixLeftChar)
 						if avro.isVowel(cacheRightChar) && avro.isKar(suffixLeftChar) {
 							fullWord = cacheItem + "\u09df" + suffix // \u09df = B_Y
 							tempSlice = append(tempSlice, fullWord)
 							avro.addToTempCache(fullWord, cacheItem, key)
 						} else {
-							if cacheRightChar == "\u09ce" { // \u09ce = b_Khandatta
-								fullWord = cacheItem[0:len(cacheItem)-1] + "\u09a4" + suffix // \u09a4 = b_T
+							if cacheRightChar == '\u09ce' { // \u09ce = b_Khandatta
+								fullWord = avro.trimLastRune(cacheItem) + "\u09a4" + suffix // \u09a4 = b_T
 								tempSlice = append(tempSlice, fullWord)
 								avro.addToTempCache(fullWord, cacheItem, key)
-							} else if cacheRightChar == "\u0982" { // \u0982 = b_Anushar
-								fullWord = cacheItem[0:len(cacheItem)-1] + "\u0999" + suffix // \u09a4 = b_NGA
+							} else if cacheRightChar == '\u0982' { // \u0982 = b_Anushar
+								fullWord = avro.trimLastRune(cacheItem) + "\u0999" + suffix // \u09a4 = b_NGA
 								tempSlice = append(tempSlice, fullWord)
 							} else {
 								fullWord = cacheItem + suffix
@@ -296,54 +301,60 @@ func (avro *SuggestionBuilder) addSuffix(splitWord splitableWord) []string {
 	return rSlice
 }
 
+func (avro *SuggestionBuilder) trimLastRune(str string) string {
+	ustring := []rune(str)
+	return string(ustring[0 : len(ustring)-1])
+}
+
 func (avro *SuggestionBuilder) getPreviousSelection(splitWord splitableWord, suggestionWords []string) int {
-	word := splitWord.middle
-	prevIndex, _, prevFound := avro.candSelector.Get(word, suggestionWords)
-	if !prevFound {
-		//Full word was not found, try checking without suffix
-		_len := len(word)
-		if _len >= 2 {
-			for j := 1; j < _len; j++ {
-				testSuffix := strings.ToLower(word[_len-j:])
-				suffix, ok := avro.SuffixDict[testSuffix]
-				if ok {
+	return 0
+	// word := splitWord.middle
+	// prevIndex, _, prevFound := avro.CandSelector.Get(word, suggestionWords)
+	// if !prevFound {
+	// 	//Full word was not found, try checking without suffix
+	// 	_len := len(word)
+	// 	if _len >= 2 {
+	// 		for j := 1; j < _len; j++ {
+	// 			testSuffix := strings.ToLower(word[_len-j:])
+	// 			suffix, ok := avro.SuffixDict[testSuffix]
+	// 			if ok {
 
-					key := word[0 : len(word)-len(testSuffix)]
-					_, _prevKeyWord, _prevFound := avro.candSelector.Get(key, suggestionWords)
+	// 				key := word[0 : len(word)-len(testSuffix)]
+	// 				_, _prevKeyWord, _prevFound := avro.CandSelector.Get(key, suggestionWords)
 
-					if _prevFound {
-						//Get possible words for key
+	// 				if _prevFound {
+	// 					//Get possible words for key
 
-						kwRightChar := _prevKeyWord[len(_prevKeyWord)-1:]
-						suffixLeftChar := suffix[0:1]
+	// 					kwRightChar := _prevKeyWord[len(_prevKeyWord)-1:]
+	// 					suffixLeftChar := suffix[0:1]
 
-						selectedWord := ""
+	// 					selectedWord := ""
 
-						if avro.isVowel(kwRightChar) && avro.isKar(suffixLeftChar) {
-							selectedWord = _prevKeyWord + "\u09df" + suffix // \u09df = B_Y
-						} else {
-							if kwRightChar == "\u09ce" { // \u09ce = b_Khandatta
-								selectedWord = _prevKeyWord[0:len(_prevKeyWord)-1] + "\u09a4" + suffix // \u09a4 = b_T
-							} else if kwRightChar == "\u0982" { // \u0982 = b_Anushar
-								selectedWord = _prevKeyWord[0:len(_prevKeyWord)-1] + "\u0999" + suffix // \u09a4 = b_NGA
-							} else {
-								selectedWord = _prevKeyWord + suffix
-							}
-						}
+	// 					if avro.isVowel(kwRightChar) && avro.isKar(suffixLeftChar) {
+	// 						selectedWord = _prevKeyWord + "\u09df" + suffix // \u09df = B_Y
+	// 					} else {
+	// 						if kwRightChar == "\u09ce" { // \u09ce = b_Khandatta
+	// 							selectedWord = _prevKeyWord[0:len(_prevKeyWord)-1] + "\u09a4" + suffix // \u09a4 = b_T
+	// 						} else if kwRightChar == "\u0982" { // \u0982 = b_Anushar
+	// 							selectedWord = _prevKeyWord[0:len(_prevKeyWord)-1] + "\u0999" + suffix // \u09a4 = b_NGA
+	// 						} else {
+	// 							selectedWord = _prevKeyWord + suffix
+	// 						}
+	// 					}
 
-						for i, v := range suggestionWords {
-							if v == selectedWord {
-								//Save this referrence
-								avro.candSelector.Set(word, selectedWord)
-								return i
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	return prevIndex
+	// 					for i, v := range suggestionWords {
+	// 						if v == selectedWord {
+	// 							//Save this referrence
+	// 							avro.CandSelector.Set(word, selectedWord)
+	// 							return i
+	// 						}
+	// 					}
+	// 				}
+	// 			}
+	// 		}
+	// 	}
+	// }
+	// return prevIndex
 }
 
 func (avro *SuggestionBuilder) joinSuggestion(autoCorrect correctableWord, dictSuggestion []string, phonetic string, splitWord splitableWord) Suggestion {
@@ -441,7 +452,7 @@ func (avro *SuggestionBuilder) Suggest(word string) Suggestion {
 
 	//Convert the word to Bangla using 3 separate methods
 	phonetic := avro.getClassicPhonetic(splitWord.middle)
-
+	fmt.Printf("tempCache, PhoneticCache > %q, %q\n", avro.tempCache, avro.phoneticCache)
 	if !avro.Pref.DictDisabled {
 		dictSuggestion := avro.getDictionarySuggestion(splitWord)
 		autoCorrect := avro.getAutocorrect(word, splitWord)
@@ -460,10 +471,10 @@ func (avro *SuggestionBuilder) StringCommitted(word string, candidate string) {
 		cacheWord, ok := avro.tempCache[candidate]
 		if ok {
 			//Don't overwrite existing value
-			if !avro.candSelector.Has(cacheWord.eng) {
-				avro.candSelector.Set(cacheWord.eng, cacheWord.base)
+			if !avro.CandSelector.Has(cacheWord.eng) {
+				avro.CandSelector.Set(cacheWord.eng, cacheWord.base)
 			}
 		}
-		avro.candSelector.Save()
+		avro.CandSelector.Save()
 	}
 }
