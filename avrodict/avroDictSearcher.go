@@ -7,7 +7,6 @@ import (
 
 	"github.com/sarim/avro-go/avroregex"
 	"github.com/sarim/gtre"
-	// "fmt"
 )
 
 type Searcher struct {
@@ -16,6 +15,9 @@ type Searcher struct {
 }
 
 func (avro *Searcher) Search(enText string) []string {
+	if len(enText) == 0 {
+		return []string{}
+	}
 	lmc := unicode.ToLower(rune(enText[0]))
 	var tableList []string
 	switch lmc {
@@ -74,7 +76,9 @@ func (avro *Searcher) Search(enText string) []string {
 	}
 
 	pattern := avro.Regex.Parse(enText)
-
+	if len(pattern) == 0 {
+		return []string{}
+	}
 	//TODO: Handle error here
 	re := gtre.Parse([]rune(pattern))
 

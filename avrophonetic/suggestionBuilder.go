@@ -161,6 +161,9 @@ func (avro *SuggestionBuilder) separatePadding(word string) splitableWord {
 	var splitSuffix func(word *string)
 
 	splitPrefix = func(word *string) {
+		if len(*word) == 0 {
+			return
+		}
 		if strings.HasPrefix(*word, part1) {
 			splitWord.begin += part1
 			*word = (*word)[2:]
@@ -177,6 +180,9 @@ func (avro *SuggestionBuilder) separatePadding(word string) splitableWord {
 	}
 
 	splitSuffix = func(word *string) {
+		if len(*word) == 0 {
+			return
+		}
 		if strings.HasSuffix(*word, part1) {
 			splitWord.end = part1 + splitWord.end
 			*word = (*word)[0 : len(*word)-2]
